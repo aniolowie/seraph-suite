@@ -1,0 +1,103 @@
+# CWE → Category mappings for Tier-1 CVE auto-tagger
+# These rules fire before SetFit and Claude batch classification.
+# Format: category → list of CWE IDs
+#
+# Reference: https://cwe.mitre.org/data/definitions/
+
+injection:
+  description: "Code/command/query injection vulnerabilities"
+  cwes:
+    - CWE-89   # SQL Injection
+    - CWE-78   # OS Command Injection
+    - CWE-77   # Command Injection (generic)
+    - CWE-94   # Code Injection
+    - CWE-74   # Injection (generic)
+    - CWE-917  # Expression Language Injection
+    - CWE-643  # XPath Injection
+    - CWE-90   # LDAP Injection
+    - CWE-91   # XML Injection
+
+xss:
+  description: "Cross-site scripting vulnerabilities"
+  cwes:
+    - CWE-79   # Cross-site Scripting (XSS)
+    - CWE-80   # Improper Neutralization of Script-Related HTML Tags
+    - CWE-83   # Improper Neutralization of Script in Attributes
+    - CWE-87   # Failure to Sanitize Alternate XSS Syntax
+
+rce:
+  description: "Remote code execution vulnerabilities"
+  cwes:
+    - CWE-94   # Code Injection
+    - CWE-78   # OS Command Injection
+    - CWE-502  # Deserialization of Untrusted Data
+    - CWE-470  # Use of Externally-Controlled Input to Select Classes
+
+memory_corruption:
+  description: "Memory safety and corruption vulnerabilities"
+  cwes:
+    - CWE-119  # Improper Restriction of Operations within Bounds of a Memory Buffer
+    - CWE-120  # Buffer Copy without Checking Size of Input (Classic Buffer Overflow)
+    - CWE-121  # Stack-based Buffer Overflow
+    - CWE-122  # Heap-based Buffer Overflow
+    - CWE-125  # Out-of-bounds Read
+    - CWE-787  # Out-of-bounds Write
+    - CWE-416  # Use After Free
+    - CWE-476  # NULL Pointer Dereference
+    - CWE-190  # Integer Overflow or Wraparound
+
+auth_bypass:
+  description: "Authentication and authorisation bypass"
+  cwes:
+    - CWE-287  # Improper Authentication
+    - CWE-306  # Missing Authentication for Critical Function
+    - CWE-307  # Improper Restriction of Excessive Authentication Attempts
+    - CWE-284  # Improper Access Control
+    - CWE-269  # Improper Privilege Management
+    - CWE-285  # Improper Authorization
+    - CWE-522  # Insufficiently Protected Credentials
+    - CWE-798  # Use of Hard-coded Credentials
+
+path_traversal:
+  description: "Path traversal and file inclusion"
+  cwes:
+    - CWE-22   # Path Traversal
+    - CWE-23   # Relative Path Traversal
+    - CWE-36   # Absolute Path Traversal
+    - CWE-73   # External Control of File Name or Path
+    - CWE-98   # PHP File Inclusion
+
+ssrf:
+  description: "Server-Side Request Forgery"
+  cwes:
+    - CWE-918  # Server-Side Request Forgery (SSRF)
+
+xxe:
+  description: "XML External Entity injection"
+  cwes:
+    - CWE-611  # Improper Restriction of XML External Entity Reference
+
+crypto_weak:
+  description: "Weak cryptography vulnerabilities"
+  cwes:
+    - CWE-327  # Use of a Broken or Risky Cryptographic Algorithm
+    - CWE-326  # Inadequate Encryption Strength
+    - CWE-338  # Use of Cryptographically Weak Pseudo-Random Number Generator
+    - CWE-330  # Use of Insufficiently Random Values
+    - CWE-759  # Use of a One-Way Hash without a Salt
+
+info_disclosure:
+  description: "Information disclosure / sensitive data exposure"
+  cwes:
+    - CWE-200  # Exposure of Sensitive Information to an Unauthorized Actor
+    - CWE-312  # Cleartext Storage of Sensitive Information
+    - CWE-319  # Cleartext Transmission of Sensitive Information
+    - CWE-209  # Generation of Error Message Containing Sensitive Information
+
+dos:
+  description: "Denial of Service vulnerabilities"
+  cwes:
+    - CWE-400  # Uncontrolled Resource Consumption
+    - CWE-770  # Allocation of Resources Without Limits or Throttling
+    - CWE-369  # Divide By Zero
+    - CWE-674  # Uncontrolled Recursion

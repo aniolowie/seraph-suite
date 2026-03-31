@@ -1,0 +1,66 @@
+# AI assistant / tool config (internal project instructions, not for public repos)
+CLAUDE.md
+.claude/
+.mcp.json
+.cursor/
+.aider*
+.copilot/
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+.eggs/
+*.egg
+.venv/
+venv/
+env/
+
+# Testing / coverage
+.pytest_cache/
+.coverage
+coverage.xml
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+
+# Data (local, populated by ingestion — do not commit)
+data/qdrant/
+data/neo4j/
+data/writeups/
+data/models/
+data/*.db
+data/*.sqlite
+
+# Docker / infra state
+docker-compose.override.yml
+
+# Secrets / keys
+*.pem
+*.key
+*.crt
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Node / Dashboard
+node_modules/
+dashboard/node_modules/
+dashboard/dist/
+dashboard/.vite/
+*.tsbuildinfo
+
+# OS
+.DS_Store
+Thumbs.db

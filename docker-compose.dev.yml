@@ -1,0 +1,19 @@
+version: "3.9"
+
+# Dev overrides: lighter resource limits, local ports, debug logging
+services:
+  qdrant:
+    environment:
+      QDRANT__LOG_LEVEL: DEBUG
+    # In dev, use embedded Qdrant mode (no external container needed for unit tests)
+    # This compose file still spins up a real container for integration tests
+
+  neo4j:
+    environment:
+      NEO4J_AUTH: ${NEO4J_USER:-neo4j}/${NEO4J_PASSWORD:-seraph_dev}
+      NEO4J_dbms_memory_heap_initial__size: "256m"
+      NEO4J_dbms_memory_heap_max__size: "512m"
+      NEO4J_dbms_logs_debug_enabled: "true"
+
+  redis:
+    command: redis-server --loglevel verbose

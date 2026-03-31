@@ -1,0 +1,78 @@
+# MITRE ATT&CK Enterprise - Static configuration
+# Source: https://attack.mitre.org/
+# Version: ATT&CK v15
+
+stix_bundle_url: "https://raw.githubusercontent.com/mitre/cti/master/enterprise-attack/enterprise-attack.json"
+pinned_version: "15.1"
+
+# Tactic ID to shortname mapping (used for kill_chain_phases resolution)
+tactics:
+  TA0001: initial-access
+  TA0002: execution
+  TA0003: persistence
+  TA0004: privilege-escalation
+  TA0005: defense-evasion
+  TA0006: credential-access
+  TA0007: discovery
+  TA0008: lateral-movement
+  TA0009: collection
+  TA0010: exfiltration
+  TA0011: command-and-control
+  TA0040: impact
+  TA0042: resource-development
+  TA0043: reconnaissance
+
+# Shortname to tactic ID (reverse mapping - auto-derived from above)
+# Used when parsing kill_chain_phases from techniques
+tactic_shortname_to_id:
+  initial-access: TA0001
+  execution: TA0002
+  persistence: TA0003
+  privilege-escalation: TA0004
+  defense-evasion: TA0005
+  credential-access: TA0006
+  discovery: TA0007
+  lateral-movement: TA0008
+  collection: TA0009
+  exfiltration: TA0010
+  command-and-control: TA0011
+  impact: TA0040
+  resource-development: TA0042
+  reconnaissance: TA0043
+
+# STIX relationship type → graph edge type mapping
+relationship_type_map:
+  uses: USES
+  mitigates: MITIGATES
+  subtechnique-of: SUBTECHNIQUE_OF
+  detects: DETECTS
+  attributed-to: ATTRIBUTED_TO
+  targets: TARGETS_ORG
+
+# STIX object type → node label mapping
+object_type_map:
+  attack-pattern: Technique
+  x-mitre-tactic: Tactic
+  course-of-action: Mitigation
+  malware: Software
+  tool: Software
+  intrusion-set: Group
+  x-mitre-data-source: DataSource
+
+# Priority techniques for CTF/HTB (used to tag chunks as high-relevance)
+priority_technique_ids:
+  - T1059   # Command and Scripting Interpreter
+  - T1190   # Exploit Public-Facing Application
+  - T1068   # Exploitation for Privilege Escalation
+  - T1210   # Exploitation of Remote Services
+  - T1046   # Network Service Discovery
+  - T1083   # File and Directory Discovery
+  - T1087   # Account Discovery
+  - T1110   # Brute Force
+  - T1003   # OS Credential Dumping
+  - T1071   # Application Layer Protocol
+  - T1055   # Process Injection
+  - T1136   # Create Account
+  - T1053   # Scheduled Task/Job
+  - T1548   # Abuse Elevation Control Mechanism
+  - T1611   # Escape to Host

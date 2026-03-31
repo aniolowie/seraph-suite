@@ -1,0 +1,95 @@
+# HTB machine definitions for Seraph Suite benchmarking
+# Add real flag hashes only in your local .env / private fork — NEVER commit real hashes.
+# Placeholder "<hash>" skips flag-hash validation; scoring falls back to flag count.
+
+machines:
+  # ── Easy Linux ───────────────────────────────────────────────────────────────
+
+  - name: Lame
+    ip: 10.10.10.3
+    os: Linux
+    difficulty: Easy
+    flags:
+      user: "<hash>"
+      root: "<hash>"
+    expected_techniques:
+      - T1210  # Exploitation of Remote Services (Samba)
+      - T1068  # Exploitation for Privilege Escalation
+
+  - name: Shocker
+    ip: 10.10.10.56
+    os: Linux
+    difficulty: Easy
+    flags:
+      user: "<hash>"
+      root: "<hash>"
+    expected_techniques:
+      - T1190  # Exploit Public-Facing Application (Shellshock)
+      - T1068  # Privilege Escalation
+
+  - name: Nibbles
+    ip: 10.10.10.75
+    os: Linux
+    difficulty: Easy
+    flags:
+      user: "<hash>"
+      root: "<hash>"
+    expected_techniques:
+      - T1190  # Nibbleblog CMS
+      - T1548  # Sudo abuse
+
+  # ── Easy Windows ─────────────────────────────────────────────────────────────
+
+  - name: Legacy
+    ip: 10.10.10.4
+    os: Windows
+    difficulty: Easy
+    flags:
+      user: "<hash>"
+      root: "<hash>"
+    expected_techniques:
+      - T1210  # MS08-067
+
+  - name: Blue
+    ip: 10.10.10.40
+    os: Windows
+    difficulty: Easy
+    flags:
+      user: "<hash>"
+      root: "<hash>"
+    expected_techniques:
+      - T1210  # EternalBlue / MS17-010
+
+  - name: Jerry
+    ip: 10.10.10.95
+    os: Windows
+    difficulty: Easy
+    flags:
+      user: "<hash>"
+      root: "<hash>"
+    expected_techniques:
+      - T1190  # Exploit Public-Facing Application (Tomcat manager)
+
+  # ── Medium ───────────────────────────────────────────────────────────────────
+
+  - name: Bastard
+    ip: 10.10.10.9
+    os: Windows
+    difficulty: Medium
+    flags:
+      user: "<hash>"
+      root: "<hash>"
+    expected_techniques:
+      - T1190  # Drupal RCE
+      - T1068  # MS15-051 privilege escalation
+
+  - name: FriendZone
+    ip: 10.10.10.123
+    os: Linux
+    difficulty: Easy
+    flags:
+      user: "<hash>"
+      root: "<hash>"
+    expected_techniques:
+      - T1190  # Zone transfer + LFI
+      - T1059  # Command injection via Python path hijack

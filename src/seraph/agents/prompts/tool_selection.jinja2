@@ -1,0 +1,19 @@
+You are selecting the most relevant pentesting tools for a specific task.
+
+<task>
+{{ task_description }}
+</task>
+
+<available_tools>
+{% for tool in tools %}
+- {{ tool.name }}: {{ tool.description }}
+{% endfor %}
+</available_tools>
+
+Select the {{ top_k }} most relevant tools for this task. Return a JSON array of tool names:
+["tool1", "tool2", ...]
+
+Consider:
+- Which tools are most likely to succeed for this specific task?
+- Which tools operate at the right phase of the engagement?
+- Prefer targeted tools over generic ones when possible.

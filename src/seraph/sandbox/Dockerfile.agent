@@ -1,0 +1,46 @@
+# Seraph agent sandbox container
+# Kali Linux base with core pentesting tools pre-installed.
+# The container runs `sleep infinity` — the SandboxExecutor issues
+# commands via `docker exec`.
+
+FROM kalilinux/kali-rolling:latest
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Core toolset — matches configs/agents.yaml tool lists.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    # Recon
+    nmap \
+    dnsrecon \
+    amass \
+    gobuster \
+    ffuf \
+    # Web
+    nikto \
+    sqlmap \
+    wfuzz \
+    # Exploitation
+    metasploit-framework \
+    exploitdb \
+    # Privesc
+    linpeas \
+    # Utilities
+    curl \
+    wget \
+    git \
+    python3 \
+    python3-pip \
+    jq \
+    netcat-openbsd \
+    socat \
+    xxd \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create a non-root user for tool execution.
+RUN useradd -m -s /bin/bash seraph
+WORKDIR /workspace
+RUN chown seraph:seraph /workspace
+
+USER seraph
+
+CMD ["sleep", "infinity"]

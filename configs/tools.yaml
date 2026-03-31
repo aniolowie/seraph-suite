@@ -1,0 +1,165 @@
+# Tool definitions for the Seraph agent system
+# Each tool has a description (used for RAG-based tool selection),
+# capabilities (list of what it does), and phase assignments.
+#
+# When >20 tools are available, the agent embeds these descriptions
+# and retrieves the top-K most relevant for the current task context.
+
+tools:
+  nmap:
+    description: >
+      Network scanner that discovers hosts, open ports, running services,
+      OS versions, and script-based vulnerability checks. Essential for
+      initial recon and service enumeration.
+    phases: [recon, enumerate]
+    capabilities:
+      - port_scan
+      - service_version_detection
+      - os_detection
+      - nse_scripting
+      - host_discovery
+    container_image: instrumentisto/nmap
+    timeout_seconds: 600
+
+  gobuster:
+    description: >
+      Directory and file brute-forcer for web applications. Discovers hidden
+      paths, files, virtual hosts, and DNS subdomains via wordlist enumeration.
+    phases: [enumerate]
+    capabilities:
+      - directory_bruteforce
+      - file_bruteforce
+      - vhost_enumeration
+      - dns_bruteforce
+    container_image: alpine/gobuster
+    timeout_seconds: 300
+
+  ffuf:
+    description: >
+      Fast web fuzzer for directory/file discovery, parameter fuzzing,
+      subdomain enumeration, and virtual host discovery. Faster alternative
+      to gobuster with more filtering options.
+    phases: [enumerate]
+    capabilities:
+      - directory_bruteforce
+      - parameter_fuzzing
+      - subdomain_enumeration
+      - vhost_discovery
+    container_image: ghcr.io/ffuf/ffuf
+    timeout_seconds: 300
+
+  sqlmap:
+    description: >
+      Automated SQL injection detection and exploitation tool. Tests for
+      SQL injection in web parameters, headers, and cookies. Can extract
+      data, read files, and in some configurations execute OS commands.
+    phases: [exploit]
+    capabilities:
+      - sqli_detection
+      - sqli_exploitation
+      - database_dump
+      - file_read
+      - os_command_execution
+    container_image: paoloo/sqlmap
+    timeout_seconds: 600
+
+  metasploit:
+    description: >
+      Exploitation framework with hundreds of exploit modules, auxiliary
+      scanners, and post-exploitation modules. Used for known CVE exploitation,
+      payload generation, and post-exploitation tasks.
+    phases: [exploit, privesc, post]
+    capabilities:
+      - cve_exploitation
+      - payload_generation
+      - post_exploitation
+      - session_management
+      - privilege_escalation
+    container_image: metasploitframework/metasploit-framework
+    timeout_seconds: 1800
+
+  linpeas:
+    description: >
+      Linux privilege escalation audit script. Enumerates misconfigurations,
+      SUID binaries, cron jobs, writable paths, kernel version, and common
+      privesc vectors on Linux targets.
+    phases: [privesc]
+    capabilities:
+      - suid_enumeration
+      - cron_enumeration
+      - kernel_version_check
+      - sudo_misconfig_check
+      - writable_paths
+      - credential_search
+    container_image: null  # Runs on target, not from container
+    timeout_seconds: 120
+
+  winpeas:
+    description: >
+      Windows privilege escalation audit script. Enumerates Windows services,
+      registry keys, scheduled tasks, credentials, and common privesc vectors
+      on Windows targets.
+    phases: [privesc]
+    capabilities:
+      - windows_service_enum
+      - registry_check
+      - scheduled_task_enum
+      - credential_search
+      - alwaysinstallelevated_check
+    container_image: null  # Runs on target
+    timeout_seconds: 120
+
+  nikto:
+    description: >
+      Web server scanner that checks for dangerous files, outdated server
+      versions, and common web vulnerabilities including misconfigurations
+      and default credentials.
+    phases: [enumerate]
+    capabilities:
+      - web_vulnerability_scan
+      - misconfig_detection
+      - default_credential_check
+      - outdated_software_detection
+    container_image: securecodebox/nikto
+    timeout_seconds: 300
+
+  hydra:
+    description: >
+      Online password brute-force tool supporting SSH, FTP, HTTP, SMB,
+      and many other protocols. Used for credential stuffing and password
+      spraying attacks.
+    phases: [exploit]
+    capabilities:
+      - ssh_bruteforce
+      - ftp_bruteforce
+      - http_bruteforce
+      - smb_bruteforce
+      - credential_stuffing
+    container_image: vanhauser/hydra
+    timeout_seconds: 600
+
+  john:
+    description: >
+      Password hash cracker supporting a wide variety of hash formats.
+      Used to crack captured hashes from /etc/shadow, NTLM, bcrypt, etc.
+    phases: [post]
+    capabilities:
+      - hash_cracking
+      - password_recovery
+      - format_detection
+    container_image: null  # CPU-intensive, runs on host
+    timeout_seconds: 3600
+
+  curl:
+    description: >
+      HTTP client for making web requests, testing API endpoints, and
+      interacting with web services. Used for manual exploitation, SSRF
+      testing, and web service interaction.
+    phases: [enumerate, exploit]
+    capabilities:
+      - http_request
+      - api_interaction
+      - ssrf_testing
+      - header_manipulation
+    container_image: curlimages/curl
+    timeout_seconds: 30

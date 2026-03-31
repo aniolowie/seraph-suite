@@ -1,0 +1,105 @@
+# Agent configuration and tool assignments
+# Defines which tools each agent has access to and its operational parameters.
+
+agents:
+  orchestrator:
+    description: "Main coordinator. Decides phase transitions and dispatches to sub-agents."
+    tools: []  # Orchestrator uses reasoning only, no direct tool calls
+    sandbox_tools: []
+    llm_model: claude-opus-4-20250514
+    max_tokens: 4096
+    phase: all
+
+  recon:
+    description: "Recon sub-agent. Discovers hosts, ports, services, and OS information."
+    tools:
+      - nmap
+      - curl
+    sandbox_tools:
+      - nmap
+      - curl
+    llm_model: claude-sonnet-4-20250514
+    max_tokens: 2048
+    phase: recon
+
+  enumerate:
+    description: "Enumeration sub-agent. Deep service enumeration and web content discovery."
+    tools:
+      - nmap
+      - gobuster
+      - ffuf
+      - nikto
+      - curl
+    sandbox_tools:
+      - nmap
+      - gobuster
+      - ffuf
+      - nikto
+      - curl
+    llm_model: claude-sonnet-4-20250514
+    max_tokens: 2048
+    phase: enumerate
+
+  exploit:
+    description: "Exploitation sub-agent. Identifies and exploits vulnerabilities."
+    tools:
+      - metasploit
+      - sqlmap
+      - hydra
+      - curl
+    sandbox_tools:
+      - metasploit
+      - sqlmap
+      - curl
+    llm_model: claude-sonnet-4-20250514
+    max_tokens: 4096
+    phase: exploit
+
+  privesc:
+    description: "Privilege escalation sub-agent. Escalates from user to root/SYSTEM."
+    tools:
+      - linpeas
+      - winpeas
+      - metasploit
+    sandbox_tools:
+      - linpeas
+      - metasploit
+    llm_model: claude-sonnet-4-20250514
+    max_tokens: 4096
+    phase: privesc
+
+  ctf:
+    description: "CTF sub-agent. Specialised for Capture The Flag challenges with writeup context."
+    tools:
+      - nmap
+      - gobuster
+      - ffuf
+      - curl
+      - metasploit
+      - sqlmap
+    sandbox_tools:
+      - nmap
+      - gobuster
+      - ffuf
+      - curl
+      - metasploit
+      - sqlmap
+    llm_model: claude-sonnet-4-20250514
+    max_tokens: 4096
+    phase: all
+
+  tagger:
+    description: "CVE auto-tagger. Classifies CVEs into CWE categories via three-tier pipeline."
+    tools: []
+    sandbox_tools: []
+    llm_model: claude-sonnet-4-20250514
+    max_tokens: 1024
+    phase: all
+
+  memorist:
+    description: "Self-learning/memory agent. Logs feedback, mines hard negatives, triggers retraining."
+    tools: []
+    sandbox_tools: []
+    llm_model: claude-haiku-4-5-20251001
+    max_tokens: 512
+    phase: all
