@@ -9,11 +9,14 @@ Import the singleton `settings` object wherever config is needed.
 
 from __future__ import annotations
 
+import json
 from enum import StrEnum
 from pathlib import Path
+from typing import Any
 
 from pydantic import Field, field_validator
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic.fields import FieldInfo
+from pydantic_settings import BaseSettings, DotEnvSettingsSource, EnvSettingsSource, SettingsConfigDict
 
 
 class Environment(StrEnum):
@@ -26,6 +29,34 @@ class LogLevel(StrEnum):
     INFO = "INFO"
     WARNING = "WARNING"
     ERROR = "ERROR"
+
+
+# ── Custom env source that accepts comma-separated strings for list fields ───
+
+def _decode_flex(value: Any) -> Any:
+    """Try JSON first; fall back to comma-separated splitting for list fields."""
+    if not isinstance(value, str):
+        return value
+    try:
+        return json.loads(value)
+    except (json.JSONDecodeError, ValueError):
+        parts = [item.strip() for item in value.split(",") if item.strip()]
+        if parts:
+            return parts
+        raise ValueError(
+            f"Cannot parse list value {value!r}: expected a JSON array "
+            "(e.g. '[\"a\",\"b\"]') or a comma-separated string (e.g. 'a,b')."
+        )
+
+
+class _FlexEnvSource(EnvSettingsSource):
+    def decode_complex_value(self, field_name: str, field: FieldInfo, value: Any) -> Any:
+        return _decode_flex(value)
+
+
+class _FlexDotEnvSource(DotEnvSettingsSource):
+    def decode_complex_value(self, field_name: str, field: FieldInfo, value: Any) -> Any:
+        return _decode_flex(value)
 
 
 class Settings(BaseSettings):
@@ -41,6 +72,7 @@ class Settings(BaseSettings):
         env_file_encoding="utf-8",
         case_sensitive=False,
         extra="ignore",
+        env_ignore_empty=True,
     )
 
     # ── General ───────────────────────────────────────────────────────────────
@@ -174,6 +206,27 @@ class Settings(BaseSettings):
         default=Path("./data/mitre/enterprise-attack.json"),
         description="Local path for the MITRE ATT&CK Enterprise STIX bundle",
     )
+
+    @classmethod
+    def settings_customise_sources(
+        cls,
+        settings_cls: type[BaseSettings],
+        init_settings: Any,
+        env_settings: Any,
+        dotenv_settings: Any,
+        file_secret_settings: Any,
+    ) -> tuple[Any, ...]:
+        cfg = settings_cls.model_config
+        return (
+            init_settings,
+            _FlexEnvSource(settings_cls),
+            _FlexDotEnvSource(
+                settings_cls,
+                env_file=cfg.get("env_file", ".env"),
+                env_file_encoding=cfg.get("env_file_encoding", "utf-8"),
+            ),
+            file_secret_settings,
+        )
 
     @field_validator(
         "models_dir",
