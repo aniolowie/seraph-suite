@@ -226,6 +226,8 @@ class BaseAgent(ABC):
             "name": tool_name,
             "exit_code": result.exit_code,
             "duration": time.monotonic() - t0,
+            "stdout": result.stdout,
+            "stderr": result.stderr,
         })
         return result
 

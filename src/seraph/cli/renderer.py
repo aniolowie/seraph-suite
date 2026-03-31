@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+from collections import deque
+
 from rich.console import Console
 from rich.markdown import Markdown
+from rich.panel import Panel
 from rich.table import Table
 from rich.theme import Theme
 
@@ -25,6 +28,11 @@ _THEME = Theme(
 
 console = Console(theme=_THEME, highlight=False)
 
+# Circular buffer of tool outputs — keyed by index for `output N` command.
+_MAX_STORED = 50
+_output_store: deque[dict[str, str]] = deque(maxlen=_MAX_STORED)
+_output_counter = 0
+
 _BANNER = """\
   ███████╗███████╗██████╗  █████╗ ██████╗ ██╗  ██╗
   ██╔════╝██╔════╝██╔══██╗██╔══██╗██╔══██╗██║  ██║
@@ -39,12 +47,19 @@ _HELP = """
     [cyan]<target IP>[/cyan]       Start a new engagement
     [cyan]findings[/cyan]          Show all current findings
     [cyan]status[/cyan]            Show engagement status
+    [cyan]output[/cyan]            Show last tool output
+    [cyan]output <N>[/cyan]        Show tool output #N
+    [cyan]outputs[/cyan]           List all stored tool outputs
     [cyan]clear[/cyan]             Clear current engagement
     [cyan]help[/cyan]              Show this message
     [cyan]quit[/cyan] / [cyan]exit[/cyan]       Exit Seraph
 
   [bold]Mid-engagement:[/bold]
     Type any instruction to steer the agent (e.g. "focus on port 445")
+
+  [bold]Logs:[/bold]
+    Full debug logs are written to [dim]~/.seraph/seraph.log[/dim]
+    Run [cyan]seraph --verbose[/cyan] to stream them to the console
 """
 
 _SEV_STYLE: dict[str, str] = {
@@ -101,9 +116,62 @@ def render_tool_start(name: str, args: dict) -> None:
     console.print(f"  [tool]▸ {name}[/tool] [dim]{arg_str}[/dim]")
 
 
-def render_tool_end(name: str, exit_code: int, duration: float) -> None:
+def render_tool_end(
+    name: str,
+    exit_code: int,
+    duration: float,
+    stdout: str = "",
+    stderr: str = "",
+) -> None:
+    """Render tool completion line and store output for later retrieval."""
+    global _output_counter
     ok = "[success]✓[/success]" if exit_code == 0 else "[error]✗[/error]"
-    console.print(f"  {ok} [dim]{name} ({duration:.1f}s)[/dim]")
+
+    combined = (stdout + "\n" + stderr).strip()
+    if combined:
+        _output_counter += 1
+        idx = _output_counter
+        _output_store.append({"idx": str(idx), "name": name, "output": combined})
+        n_lines = combined.count("\n") + 1
+        hint = f" [dim][#{idx} · {n_lines} lines — 'output {idx}' to view][/dim]"
+    else:
+        hint = ""
+
+    console.print(f"  {ok} [dim]{name} ({duration:.1f}s)[/dim]{hint}")
+
+
+def render_tool_output(idx: int | None = None) -> None:
+    """Print stored tool output.  No idx = show the most recent."""
+    if not _output_store:
+        console.print("[dim]No tool output stored yet.[/dim]")
+        return
+
+    if idx is None:
+        entry = _output_store[-1]
+    else:
+        entry = next((e for e in _output_store if e["idx"] == str(idx)), None)
+        if entry is None:
+            console.print(f"[error]No output stored for #{idx}.[/error]")
+            return
+
+    console.print(
+        Panel(
+            entry["output"],
+            title=f"[tool]{entry['name']}[/tool] output [dim]#{entry['idx']}[/dim]",
+            border_style="dim",
+            expand=False,
+        )
+    )
+
+
+def render_output_list() -> None:
+    """Print a summary of all stored tool outputs."""
+    if not _output_store:
+        console.print("[dim]No tool output stored.[/dim]")
+        return
+    for entry in _output_store:
+        n = entry["output"].count("\n") + 1
+        console.print(f"  [dim]#{entry['idx']}[/dim]  [tool]{entry['name']}[/tool]  [dim]{n} lines[/dim]")
 
 
 def render_finding(title: str, description: str, severity: str) -> None:

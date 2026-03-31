@@ -40,10 +40,12 @@ from seraph.cli.renderer import (
     render_help,
     render_info,
     render_llm_text,
+    render_output_list,
     render_phase,
     render_status,
     render_success,
     render_tool_end,
+    render_tool_output,
     render_tool_start,
     render_warning,
 )
@@ -102,6 +104,12 @@ class SeraphREPL:
                     render_findings_table([f.model_dump() for f in self._state.findings])
                 else:
                     render_info("No active engagement.")
+            elif cmd == "outputs":
+                render_output_list()
+            elif cmd == "output" or cmd.startswith("output "):
+                parts = raw.split()
+                idx = int(parts[1]) if len(parts) > 1 and parts[1].isdigit() else None
+                render_tool_output(idx)
             elif cmd == "status":
                 if self._state:
                     render_status(
@@ -178,6 +186,8 @@ class SeraphREPL:
                 data.get("name", ""),
                 data.get("exit_code", 0),
                 data.get("duration", 0.0),
+                stdout=data.get("stdout", ""),
+                stderr=data.get("stderr", ""),
             )
         elif event_type == "phase_change":
             render_phase(data.get("phase", ""))

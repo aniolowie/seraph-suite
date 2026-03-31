@@ -18,13 +18,19 @@ import click
 @click.group(invoke_without_command=True)
 @click.version_option(package_name="seraph-suite")
 @click.option("--target", "-t", default=None, help="Target IP/hostname — skip REPL prompt.")
+@click.option("--verbose", "-v", is_flag=True, default=False, help="Stream debug logs to console.")
 @click.pass_context
-def cli(ctx: click.Context, target: str | None) -> None:
+def cli(ctx: click.Context, target: str | None, verbose: bool) -> None:
     """Seraph — AI pentest agent suite.
 
     Run without arguments to enter the interactive REPL.
     Pass -t <IP> to start an engagement immediately.
+    Full debug logs are always written to ~/.seraph/seraph.log.
     """
+    from seraph.cli.logging_setup import configure_logging
+
+    configure_logging(verbose=verbose)
+
     if ctx.invoked_subcommand is None:
         from seraph.cli.repl import SeraphREPL
 
