@@ -36,6 +36,7 @@ dependencies = [
     "datasets>=2.19",
     "aiodocker>=0.22",
     "python-multipart>=0.0.22",
+    "rich>=13.0",
 ]
 
 [project.optional-dependencies]

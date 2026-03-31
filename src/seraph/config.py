@@ -59,7 +59,7 @@ class Settings(BaseSettings):
     # ── Neo4j ─────────────────────────────────────────────────────────────────
     neo4j_uri: str = Field(default="bolt://localhost:7687")
     neo4j_user: str = Field(default="neo4j")
-    neo4j_password: str = Field(..., description="Neo4j password")
+    neo4j_password: str = Field(default="seraph_secret", description="Neo4j password")
 
     # ── Redis / Celery ────────────────────────────────────────────────────────
     redis_url: str = Field(default="redis://localhost:6379/0")

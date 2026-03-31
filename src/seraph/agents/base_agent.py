@@ -8,7 +8,9 @@ Sub-agents implement ``run()`` and define ``AGENT_NAME``.
 
 from __future__ import annotations
 
+import time
 from abc import ABC, abstractmethod
+from collections.abc import Awaitable, Callable
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -24,6 +26,9 @@ if TYPE_CHECKING:
     from seraph.sandbox.executor import SandboxExecutor
     from seraph.tools._base import BaseTool
     from seraph.tools._registry import ToolRegistry
+
+# Async callback: (event_type, data) → None
+EventCallback = Callable[[str, dict[str, Any]], Awaitable[None]] | None
 
 log = structlog.get_logger(__name__)
 
@@ -52,6 +57,7 @@ class BaseAgent(ABC):
         max_tool_calls: int = 10,
         sandbox_executor: SandboxExecutor | None = None,
         container_id: str = "",
+        on_event: EventCallback = None,
     ) -> None:
         self._llm = llm
         self._retriever = retriever
@@ -59,12 +65,18 @@ class BaseAgent(ABC):
         self._max_tool_calls = max_tool_calls
         self._sandbox_executor = sandbox_executor
         self._container_id = container_id
+        self._on_event = on_event
         self._jinja = Environment(
             loader=FileSystemLoader(str(_PROMPTS_DIR)),
             autoescape=False,
         )
 
     # ── Public API ────────────────────────────────────────────────────────────
+
+    async def _emit(self, event_type: str, data: dict[str, Any]) -> None:
+        """Fire an event to the registered callback (no-op if none set)."""
+        if self._on_event is not None:
+            await self._on_event(event_type, data)
 
     @abstractmethod
     async def run(self, state: EngagementState) -> EngagementState:
@@ -181,26 +193,38 @@ class BaseAgent(ABC):
         Returns:
             ``ToolResult`` (may have non-zero exit_code on failure).
         """
+        await self._emit("tool_start", {"name": tool_name, "args": tool_args})
+        t0 = time.monotonic()
+
         if self._registry is None:
-            return _error_result(tool_name, "No tool registry configured")
-        try:
-            tool = self._registry.get(tool_name)
-            # Route through sandbox when executor + container are both set.
-            if self._sandbox_executor is not None and self._container_id:
-                command = tool.to_sandbox_command(tool_args, target)
-                return await self._sandbox_executor.execute_tool(
-                    self._container_id,
-                    tool_name,
-                    command,
-                    timeout=tool.timeout,
-                )
-            return await tool.execute(tool_args, target)
-        except ToolTimeoutError as exc:
-            log.warning("base_agent.tool_timeout", tool=tool_name, error=str(exc))
-            return _error_result(tool_name, f"Timeout: {exc}")
-        except (ToolExecutionError, ValueError) as exc:
-            log.warning("base_agent.tool_error", tool=tool_name, error=str(exc))
-            return _error_result(tool_name, str(exc))
+            result = _error_result(tool_name, "No tool registry configured")
+        else:
+            try:
+                tool = self._registry.get(tool_name)
+                # Route through sandbox when executor + container are both set.
+                if self._sandbox_executor is not None and self._container_id:
+                    command = tool.to_sandbox_command(tool_args, target)
+                    result = await self._sandbox_executor.execute_tool(
+                        self._container_id,
+                        tool_name,
+                        command,
+                        timeout=tool.timeout,
+                    )
+                else:
+                    result = await tool.execute(tool_args, target)
+            except ToolTimeoutError as exc:
+                log.warning("base_agent.tool_timeout", tool=tool_name, error=str(exc))
+                result = _error_result(tool_name, f"Timeout: {exc}")
+            except (ToolExecutionError, ValueError) as exc:
+                log.warning("base_agent.tool_error", tool=tool_name, error=str(exc))
+                result = _error_result(tool_name, str(exc))
+
+        await self._emit("tool_end", {
+            "name": tool_name,
+            "exit_code": result.exit_code,
+            "duration": time.monotonic() - t0,
+        })
+        return result
 
     def _append_history(
         self,

@@ -17,7 +17,7 @@ from seraph.agents.state import EngagementState, Phase
 from seraph.exceptions import LLMError, OrchestratorError
 
 if TYPE_CHECKING:
-    from seraph.agents.base_agent import BaseAgent
+    from seraph.agents.base_agent import BaseAgent, EventCallback
     from seraph.agents.llm_client import AnthropicClient
 
 log = structlog.get_logger(__name__)
@@ -53,11 +53,13 @@ class OrchestratorAgent:
         agents: dict[str, BaseAgent],
         max_iterations: int = 15,
         opus_model: str = "claude-opus-4-20250514",
+        on_event: EventCallback = None,
     ) -> None:
         self._llm = llm
         self._agents = agents
         self._max_iterations = max_iterations
         self._opus_model = opus_model
+        self._on_event = on_event
 
         from pathlib import Path
 
@@ -68,6 +70,11 @@ class OrchestratorAgent:
             loader=FileSystemLoader(str(prompts_dir)),
             autoescape=False,
         )
+
+    async def _emit(self, event_type: str, data: dict[str, Any]) -> None:
+        """Fire an orchestrator-level event to the registered callback."""
+        if self._on_event is not None:
+            await self._on_event(event_type, data)
 
     # ── Public API ────────────────────────────────────────────────────────────
 
@@ -125,6 +132,8 @@ class OrchestratorAgent:
         )
 
         new_phase = _PHASE_MAP.get(next_phase_str, state.phase)
+        if new_phase != state.phase:
+            await self._emit("phase_change", {"phase": new_phase.value})
         return state.model_copy(
             update={
                 "current_agent": next_agent,
@@ -148,6 +157,7 @@ class OrchestratorAgent:
 
         agent = self._agents[agent_name]
         log.info("orchestrator.dispatching", agent=agent_name, iteration=state.iteration)
+        await self._emit("agent_start", {"agent": agent_name, "phase": state.phase.value})
 
         state = state.model_copy(update={"iteration": state.iteration + 1})
         return await agent.run(state)
