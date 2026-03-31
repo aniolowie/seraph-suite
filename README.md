@@ -74,6 +74,98 @@ Setup will:
 
 ---
 
+## Install from source (without PyPI)
+
+Use this path if you want the latest unreleased code, want to contribute, or prefer not to install from PyPI.
+
+**Requirements:** Python 3.12+, Git, Docker ([Docker Desktop](https://www.docker.com/products/docker-desktop/) on Windows), an [Anthropic API key](https://console.anthropic.com/)
+
+### Linux
+
+**With uv (recommended)**
+
+```bash
+# 1. Install uv if you don't have it
+curl -LsSf https://astral.sh/uv/install.sh | sh
+source $HOME/.local/bin/env   # add uv to the current shell
+
+# 2. Clone the repository
+git clone https://github.com/aniolowie/seraph-suite.git
+cd seraph-suite
+
+# 3. Create a virtual environment and install all dependencies
+uv sync
+
+# 4. Run Seraph via uv
+uv run seraph setup
+uv run seraph
+```
+
+**With pip**
+
+```bash
+# 1. Clone the repository
+git clone https://github.com/aniolowie/seraph-suite.git
+cd seraph-suite
+
+# 2. Create and activate a virtual environment
+python3 -m venv .venv
+source .venv/bin/activate
+
+# 3. Install the package in editable mode
+pip install -e .
+
+# 4. Run the one-time setup
+seraph setup
+seraph
+```
+
+### Windows
+
+Open **PowerShell** (or Windows Terminal).
+
+**With uv (recommended)**
+
+```powershell
+# 1. Install uv if you don't have it
+powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+# Restart PowerShell so uv is on your PATH
+
+# 2. Clone the repository
+git clone https://github.com/aniolowie/seraph-suite.git
+cd seraph-suite
+
+# 3. Create a virtual environment and install all dependencies
+uv sync
+
+# 4. Run Seraph via uv
+uv run seraph setup
+uv run seraph
+```
+
+**With pip**
+
+```powershell
+# 1. Clone the repository
+git clone https://github.com/aniolowie/seraph-suite.git
+cd seraph-suite
+
+# 2. Create and activate a virtual environment
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+
+# 3. Install the package in editable mode
+pip install -e .
+
+# 4. Run the one-time setup
+seraph setup
+seraph
+```
+
+> **Windows note:** Make sure Docker Desktop is running before `seraph setup`. If you hit a script execution policy error, run `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned` in PowerShell first.
+
+---
+
 ## Usage
 
 ### Interactive REPL
