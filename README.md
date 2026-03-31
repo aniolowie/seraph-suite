@@ -16,8 +16,6 @@
 [![uv](https://img.shields.io/badge/package%20manager-uv-purple?style=flat-square)](https://github.com/astral-sh/uv)
 [![Tests](https://img.shields.io/badge/tests-passing-brightgreen?style=flat-square)](#testing)
 
-</div>
-
 ---
 
 Seraph is an AI pentest agent that runs in your terminal. Point it at a target, and it plans, scans, exploits, and escalates — asking your input between phases, streaming every tool call and finding in real time.
@@ -283,7 +281,4 @@ MIT — see [LICENSE](LICENSE).
 
 ---
 
-<div align="center">
-<sub>Built by <a href="https://github.com/Unohana">Maciej</a> · Powered by <a href="https://anthropic.com">Anthropic Claude</a></sub>
-</div>
-]]>
+<sub>Built by [Maciej](https://github.com/Unohana) · Powered by [Anthropic Claude](https://anthropic.com)</sub>

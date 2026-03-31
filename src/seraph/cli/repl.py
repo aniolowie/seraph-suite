@@ -19,6 +19,16 @@ from seraph.agents.orchestrator import OrchestratorAgent
 from seraph.agents.privesc import PrivescAgent
 from seraph.agents.recon import ReconAgent
 from seraph.agents.state import EngagementState, Phase, TargetInfo
+from seraph.tools import (
+    CurlTool,
+    GobusterTool,
+    HydraTool,
+    LinpeasTool,
+    MetasploitTool,
+    NmapTool,
+    SqlmapTool,
+    ToolRegistry,
+)
 from seraph.cli.renderer import (
     console,
     prompt_input,
@@ -181,13 +191,24 @@ class SeraphREPL:
 
 
 def _build_orchestrator(llm: AnthropicClient, on_event: Any) -> OrchestratorAgent:
-    """Construct the orchestrator with all sub-agents registered."""
+    """Construct the orchestrator with all sub-agents and tools registered."""
+    registry = ToolRegistry()
+    registry.register_many([
+        NmapTool(),
+        CurlTool(),
+        GobusterTool(),
+        SqlmapTool(),
+        HydraTool(),
+        MetasploitTool(),
+        LinpeasTool(),
+    ])
+
     agents = {
-        "recon": ReconAgent(llm=llm, on_event=on_event),
-        "exploit": ExploitAgent(llm=llm, on_event=on_event),
-        "privesc": PrivescAgent(llm=llm, on_event=on_event),
-        "ctf": CtfAgent(llm=llm, on_event=on_event),
-        "memorist": MemoristAgent(llm=llm, on_event=on_event),
+        "recon": ReconAgent(llm=llm, tool_registry=registry, on_event=on_event),
+        "exploit": ExploitAgent(llm=llm, tool_registry=registry, on_event=on_event),
+        "privesc": PrivescAgent(llm=llm, tool_registry=registry, on_event=on_event),
+        "ctf": CtfAgent(llm=llm, tool_registry=registry, on_event=on_event),
+        "memorist": MemoristAgent(llm=llm, tool_registry=registry, on_event=on_event),
     }
     return OrchestratorAgent(
         llm=llm,
