@@ -103,7 +103,7 @@ class Settings(BaseSettings):
     qdrant_collection_name: str = Field(default="seraph_kb")
 
     # ── Neo4j ─────────────────────────────────────────────────────────────────
-    neo4j_uri: str = Field(default="bolt://localhost:7687")
+    neo4j_uri: str = Field(default="bolt://127.0.0.1:7687")
     neo4j_user: str = Field(default="neo4j")
     neo4j_password: str = Field(default="seraph_secret", description="Neo4j password")
 
