@@ -204,7 +204,7 @@ def _build_orchestrator(llm: AnthropicClient, on_event: Any) -> OrchestratorAgen
     ])
 
     agents = {
-        "recon": ReconAgent(llm=llm, tool_registry=registry, on_event=on_event),
+        "recon": ReconAgent(llm=llm, tool_registry=registry, max_tool_calls=4, on_event=on_event),
         "exploit": ExploitAgent(llm=llm, tool_registry=registry, on_event=on_event),
         "privesc": PrivescAgent(llm=llm, tool_registry=registry, on_event=on_event),
         "ctf": CtfAgent(llm=llm, tool_registry=registry, on_event=on_event),

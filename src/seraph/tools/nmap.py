@@ -128,7 +128,11 @@ class NmapTool(BaseTool):
                     "flags": {
                         "type": "array",
                         "items": {"type": "string"},
-                        "description": "Nmap flags e.g. ['-sV', '-O', '-A'].",
+                        "description": (
+                            "Short nmap flags only, e.g. ['-sV', '-sC', '-A']. "
+                            "Each must start with a single dash followed by letters/digits. "
+                            "Do NOT pass '--top-ports' (handled internally) or '-O' (requires root)."
+                        ),
                     },
                     "scripts": {
                         "type": "string",
