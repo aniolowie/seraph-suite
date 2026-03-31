@@ -77,6 +77,7 @@ class WriteupIngestor:
         Raises:
             WriteupIngestionError: On directory traversal or embedding failure.
         """
+        await self._state.init_db()
         base_dir = writeups_dir or Path("./data/writeups")
         if not base_dir.exists():
             log.info("writeup_ingestor.dir_missing", path=str(base_dir))

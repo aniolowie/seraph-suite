@@ -119,6 +119,7 @@ class QdrantStore:
                 "chunks, dense_vectors, and sparse_vectors must have the same length"
             )
 
+        await self.ensure_collection()
         batch_size = settings.ingestion_batch_size
         try:
             for i in range(0, len(chunks), batch_size):

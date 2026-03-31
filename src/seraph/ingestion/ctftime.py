@@ -84,6 +84,7 @@ class CTFTimeScraper:
         Raises:
             WriteupIngestionError: On API or embedding failure.
         """
+        await self._state.init_db()
         log.info("ctftime_scraper.start", limit=limit)
         entries = await self._fetch_writeup_list(limit)
 

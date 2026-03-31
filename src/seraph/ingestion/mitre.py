@@ -94,6 +94,7 @@ class MITREIngestor:
             MITREIngestionError: On download, parse, or DB failure.
         """
         try:
+            await self._state_db.init_db()
             await self._ensure_stix_file(download)
             bundle = self._load_bundle()
             source_id = f"mitre-{bundle.get('id', 'unknown')}"

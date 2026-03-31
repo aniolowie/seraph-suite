@@ -37,12 +37,13 @@ def setup(skip_docker: bool, skip_ingest: bool, local: bool) -> None:
     else:
         _ensure_api_key(env_path)
 
+    services_running = False
     if not skip_docker:
-        _start_services()
+        services_running = _start_services()
     else:
         render_info("Skipping Docker services.")
 
-    if not skip_ingest and not skip_docker:
+    if not skip_ingest and services_running:
         _ingest_mitre()
     elif not skip_ingest:
         render_warning(
@@ -119,10 +120,10 @@ def _ensure_api_key(env_path: Path) -> None:
         render_warning("Skipped. Set ANTHROPIC_API_KEY in .env before running.")
 
 
-def _start_services() -> None:
+def _start_services() -> bool:
     if not _docker_ok():
         render_warning("Docker not found. Install Docker, then run [bold]make up[/bold].")
-        return
+        return False
 
     console.print("\n[*] Starting Docker services (Qdrant, Neo4j, Redis)...")
     result = subprocess.run(
@@ -132,10 +133,11 @@ def _start_services() -> None:
     )
     if result.returncode != 0:
         render_error(f"docker compose failed:\n{result.stderr[:400]}")
-        return
+        return False
 
     render_success("Containers started")
     _wait_for_qdrant()
+    return True
 
 
 def _wait_for_qdrant(retries: int = 20) -> None:
@@ -144,7 +146,7 @@ def _wait_for_qdrant(retries: int = 20) -> None:
     except ImportError:
         return
 
-    console.print("  Waiting for Qdrant", end="", flush=True)
+    console.print("  Waiting for Qdrant", end="")
     for _ in range(retries):
         try:
             r = httpx.get("http://localhost:6333/readyz", timeout=2.0)
@@ -153,7 +155,7 @@ def _wait_for_qdrant(retries: int = 20) -> None:
                 return
         except Exception:
             pass
-        console.print(".", end="", flush=True)
+        console.print(".", end="")
         time.sleep(2)
     console.print(" [yellow]timed out — services may still be starting[/yellow]")
 

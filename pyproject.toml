@@ -33,6 +33,7 @@ dependencies = [
     "pydantic-settings>=2.3",
     "structlog>=24.2",
     "sentence-transformers>=3.0",
+    "einops>=0.7",
     "python-frontmatter>=1.1",
     "celery[redis]>=5.4",
     "httpx>=0.27",
