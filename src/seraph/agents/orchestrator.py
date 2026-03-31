@@ -18,7 +18,7 @@ from seraph.exceptions import LLMError, OrchestratorError
 
 if TYPE_CHECKING:
     from seraph.agents.base_agent import BaseAgent, EventCallback
-    from seraph.agents.llm_client import AnthropicClient
+    from seraph.agents.llm_client import BaseLLMClient
 
 log = structlog.get_logger(__name__)
 
@@ -49,7 +49,7 @@ class OrchestratorAgent:
 
     def __init__(
         self,
-        llm: AnthropicClient,
+        llm: BaseLLMClient,
         agents: dict[str, BaseAgent],
         max_iterations: int = 15,
         opus_model: str = "claude-opus-4-20250514",

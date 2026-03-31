@@ -48,8 +48,22 @@ class Settings(BaseSettings):
     log_level: LogLevel = LogLevel.INFO
 
     # ── LLM APIs ──────────────────────────────────────────────────────────────
-    anthropic_api_key: str = Field(..., description="Anthropic API key")
+    anthropic_api_key: str = Field(default="", description="Anthropic API key")
     openrouter_api_key: str = Field(default="", description="OpenRouter fallback key")
+
+    # ── Local model (Ollama) ──────────────────────────────────────────────────
+    local_model_enabled: bool = Field(
+        default=False,
+        description="Use a local Ollama model instead of Anthropic.",
+    )
+    local_model_url: str = Field(
+        default="http://localhost:11434",
+        description="Base URL of the Ollama server.",
+    )
+    local_model_name: str = Field(
+        default="qwen2.5-coder:8b",
+        description="Ollama model tag to use (e.g. 'qwen2.5-coder:8b').",
+    )
 
     # ── Qdrant ────────────────────────────────────────────────────────────────
     qdrant_url: str = Field(default="http://localhost:6333")

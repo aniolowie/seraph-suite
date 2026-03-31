@@ -19,13 +19,23 @@ from seraph.cli.renderer import console, render_error, render_info, render_succe
 @click.command(name="setup")
 @click.option("--skip-docker", is_flag=True, help="Skip Docker service startup.")
 @click.option("--skip-ingest", is_flag=True, help="Skip initial MITRE data ingestion.")
-def setup(skip_docker: bool, skip_ingest: bool) -> None:
+@click.option(
+    "--local",
+    is_flag=True,
+    default=False,
+    help="Configure a local Ollama model instead of Anthropic.",
+)
+def setup(skip_docker: bool, skip_ingest: bool, local: bool) -> None:
     """First-run setup: configure .env, start services, ingest baseline data."""
     console.print("\n[bold cyan]Seraph Setup[/bold cyan]\n")
 
     env_path = Path(".env")
     _ensure_env(env_path)
-    _ensure_api_key(env_path)
+
+    if local:
+        _configure_local_model(env_path)
+    else:
+        _ensure_api_key(env_path)
 
     if not skip_docker:
         _start_services()
@@ -35,7 +45,10 @@ def setup(skip_docker: bool, skip_ingest: bool) -> None:
     if not skip_ingest and not skip_docker:
         _ingest_mitre()
     elif not skip_ingest:
-        render_warning("Skipping MITRE ingest (no services). Run [bold]seraph ingest mitre --download[/bold] later.")
+        render_warning(
+            "Skipping MITRE ingest (no services)."
+            " Run [bold]seraph ingest mitre --download[/bold] later."
+        )
 
     console.print()
     render_success("Setup complete.")
@@ -65,6 +78,26 @@ def _ensure_env(env_path: Path) -> None:
             "REDIS_URL=redis://localhost:6379/0\n"
         )
     render_success(f"Created {env_path}")
+
+
+def _configure_local_model(env_path: Path) -> None:
+    """Prompt for local model settings and write them to .env."""
+    console.print("\n[yellow]*[/yellow] Configuring local model (Ollama).")
+
+    default_url = _read_env_value(env_path, "LOCAL_MODEL_URL") or "http://localhost:11434"
+    url = console.input(f"  Ollama URL [{default_url}]: ").strip() or default_url
+
+    default_model = _read_env_value(env_path, "LOCAL_MODEL_NAME") or "qwen2.5-coder:8b"
+    model = console.input(f"  Model name [{default_model}]: ").strip() or default_model
+
+    _write_env_value(env_path, "LOCAL_MODEL_ENABLED", "true")
+    _write_env_value(env_path, "LOCAL_MODEL_URL", url)
+    _write_env_value(env_path, "LOCAL_MODEL_NAME", model)
+    render_success(f"Local model configured: [bold]{model}[/bold] at {url}")
+    render_info(
+        "Make sure Ollama is running and the model is pulled: "
+        f"[bold]ollama pull {model}[/bold]"
+    )
 
 
 def _ensure_api_key(env_path: Path) -> None:
@@ -133,7 +166,9 @@ def _ingest_mitre() -> None:
     if result.returncode == 0:
         render_success("MITRE ATT&CK ingested into Neo4j + Qdrant")
     else:
-        render_warning("MITRE ingest failed. Run [bold]seraph ingest mitre --download[/bold] manually.")
+        render_warning(
+            "MITRE ingest failed. Run [bold]seraph ingest mitre --download[/bold] manually."
+        )
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────

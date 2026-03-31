@@ -21,7 +21,7 @@ from seraph.agents.state import AgentAction, EngagementState, TargetInfo, ToolRe
 from seraph.exceptions import ToolExecutionError, ToolTimeoutError
 
 if TYPE_CHECKING:
-    from seraph.agents.llm_client import AnthropicClient
+    from seraph.agents.llm_client import BaseLLMClient
     from seraph.knowledge.graph_retriever import GraphRAGRetriever
     from seraph.sandbox.executor import SandboxExecutor
     from seraph.tools._base import BaseTool
@@ -51,7 +51,7 @@ class BaseAgent(ABC):
 
     def __init__(
         self,
-        llm: AnthropicClient,
+        llm: BaseLLMClient,
         retriever: GraphRAGRetriever | None = None,
         tool_registry: ToolRegistry | None = None,
         max_tool_calls: int = 10,
@@ -59,7 +59,7 @@ class BaseAgent(ABC):
         container_id: str = "",
         on_event: EventCallback = None,
     ) -> None:
-        self._llm = llm
+        self._llm: BaseLLMClient = llm
         self._retriever = retriever
         self._registry = tool_registry
         self._max_tool_calls = max_tool_calls
