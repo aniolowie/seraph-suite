@@ -187,6 +187,7 @@ def _update_target_from_nmap(xml_output: str, target: TargetInfo) -> TargetInfo:
         return target
 
     ports: list[int] = []
+    os_str = ""
     for host in root.findall("host"):
         for port_el in host.findall(".//port"):
             state_el = port_el.find("state")
