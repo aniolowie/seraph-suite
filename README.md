@@ -276,7 +276,7 @@ All settings come from `.env`. Copy `.env.example` to get started.
 
 | Variable | Default | Description |
 |---|---|---|
-| `ANTHROPIC_API_KEY` | — | **Required.** Your Anthropic key |
+| `ANTHROPIC_API_KEY` | — | **Required** (unless using a local model). Your Anthropic key |
 | `QDRANT_URL` | `http://localhost:6333` | Qdrant vector store |
 | `NEO4J_URI` | `bolt://localhost:7687` | Neo4j graph store |
 | `NEO4J_PASSWORD` | `seraph_secret` | Neo4j password |
@@ -285,6 +285,9 @@ All settings come from `.env`. Copy `.env.example` to get started.
 | `DENSE_EMBEDDING_MODEL` | `nomic-ai/nomic-embed-text-v1.5` | Local embedding model |
 | `RERANKER_MODEL` | `BAAI/bge-reranker-v2-m3` | Local reranker model |
 | `LOG_LEVEL` | `INFO` | Log verbosity |
+| `LOCAL_MODEL_ENABLED` | `false` | Use a local Ollama model instead of Anthropic |
+| `LOCAL_MODEL_URL` | `http://localhost:11434` | Base URL of your Ollama server |
+| `LOCAL_MODEL_NAME` | `qwen2.5-coder:8b` | Ollama model tag to use |
 
 Services can be managed with:
 
@@ -292,6 +295,64 @@ Services can be managed with:
 make up      # start Qdrant + Neo4j + Redis
 make down    # stop all services
 make dev     # start with dev overrides
+```
+
+---
+
+## Local model (Ollama)
+
+Seraph can use a local model via [Ollama](https://ollama.com) instead of the Anthropic API.  This is useful for air-gapped environments or when you want to avoid API costs.
+
+### 1. Install Ollama
+
+**Linux / macOS**
+
+```bash
+curl -fsSL https://ollama.com/install.sh | sh
+```
+
+**Windows** — download and run the installer from <https://ollama.com/download>.
+
+### 2. Pull the model
+
+```bash
+ollama pull qwen2.5-coder:8b
+```
+
+Ollama must have the model available locally before Seraph starts.  If you see:
+
+```
+LLM decision failed: Local model HTTP 404: {"error":{"message":"model 'qwen2.5-coder:8b' not found",...}}
+```
+
+it means the model was not pulled.  Run the `ollama pull` command above to fix it.
+
+You can use any model that Ollama supports — just change `LOCAL_MODEL_NAME` to match the tag you pulled (e.g. `llama3.1:8b`, `mistral:7b`, `deepseek-coder-v2:16b`).
+
+### 3. Configure Seraph
+
+Add the following lines to your `.env`:
+
+```dotenv
+LOCAL_MODEL_ENABLED=true
+LOCAL_MODEL_URL=http://localhost:11434   # default; change if Ollama runs elsewhere
+LOCAL_MODEL_NAME=qwen2.5-coder:8b       # must match the tag you pulled
+```
+
+When `LOCAL_MODEL_ENABLED=true`, the `ANTHROPIC_API_KEY` is not required.
+
+### 4. Verify
+
+Start Ollama (it may already be running as a system service after install):
+
+```bash
+ollama serve   # only needed if the daemon is not already running
+```
+
+Then launch Seraph as usual:
+
+```bash
+seraph
 ```
 
 ---
