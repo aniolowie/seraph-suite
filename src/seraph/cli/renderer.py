@@ -54,6 +54,12 @@ _HELP = """
     [cyan]help[/cyan]              Show this message
     [cyan]quit[/cyan] / [cyan]exit[/cyan]       Exit Seraph
 
+  [bold]Model switching:[/bold]
+    [cyan]/local[/cyan]            Switch to the configured local Ollama model
+    [cyan]/local <model>[/cyan]    Switch to a specific local model (e.g.
+                          [dim]qwen2.5-coder:8b[/dim])
+    [cyan]/anthropic[/cyan]        Switch back to the Anthropic cloud API
+
   [bold]Mid-engagement:[/bold]
     Type any instruction to steer the agent (e.g. "focus on port 445")
 

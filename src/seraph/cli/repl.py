@@ -13,22 +13,12 @@ import structlog
 
 from seraph.agents.ctf import CtfAgent
 from seraph.agents.exploit import ExploitAgent
-from seraph.agents.llm_client import AnthropicClient
+from seraph.agents.llm_client import AnthropicClient, BaseLLMClient, LocalModelClient
 from seraph.agents.memorist import MemoristAgent
 from seraph.agents.orchestrator import OrchestratorAgent
 from seraph.agents.privesc import PrivescAgent
 from seraph.agents.recon import ReconAgent
 from seraph.agents.state import EngagementState, Phase, TargetInfo
-from seraph.tools import (
-    CurlTool,
-    GobusterTool,
-    HydraTool,
-    LinpeasTool,
-    MetasploitTool,
-    NmapTool,
-    SqlmapTool,
-    ToolRegistry,
-)
 from seraph.cli.renderer import (
     console,
     prompt_input,
@@ -51,11 +41,39 @@ from seraph.cli.renderer import (
 )
 from seraph.config import settings
 from seraph.exceptions import SeraphError
+from seraph.tools import (
+    CurlTool,
+    GobusterTool,
+    HydraTool,
+    LinpeasTool,
+    MetasploitTool,
+    NmapTool,
+    SqlmapTool,
+    ToolRegistry,
+)
 
 log = structlog.get_logger(__name__)
 
 _IP_RE = re.compile(r"^\d{1,3}(\.\d{1,3}){3}$")
 _HOST_RE = re.compile(r"^[a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z]{2,})+$")
+
+
+def _build_llm_client() -> BaseLLMClient:
+    """Instantiate the configured LLM client.
+
+    Returns a ``LocalModelClient`` when ``LOCAL_MODEL_ENABLED=true`` is set,
+    otherwise an ``AnthropicClient``.
+    """
+    if settings.local_model_enabled:
+        render_info(
+            f"Using local model [bold]{settings.local_model_name}[/bold]"
+            f" at {settings.local_model_url}"
+        )
+        return LocalModelClient(
+            base_url=settings.local_model_url,
+            model_name=settings.local_model_name,
+        )
+    return AnthropicClient(api_key=settings.anthropic_api_key)
 
 
 class SeraphREPL:
@@ -68,7 +86,7 @@ class SeraphREPL:
     def __init__(self) -> None:
         self._state: EngagementState | None = None
         self._orchestrator: OrchestratorAgent | None = None
-        self._llm = AnthropicClient(api_key=settings.anthropic_api_key)
+        self._llm: BaseLLMClient = _build_llm_client()
 
     async def run(self, initial_target: str | None = None) -> None:
         """Start the interactive loop.
@@ -125,6 +143,10 @@ class SeraphREPL:
                 self._state = None
                 self._orchestrator = None
                 render_info("Engagement cleared.")
+            elif cmd.startswith("/local"):
+                self._switch_to_local(raw)
+            elif cmd == "/anthropic":
+                self._switch_to_anthropic()
             elif _looks_like_target(raw):
                 await self._start_engagement(raw)
             elif self._state is not None:
@@ -133,6 +155,32 @@ class SeraphREPL:
                 render_info("No active engagement. Enter a target IP or hostname to start.")
 
     # ── Private ───────────────────────────────────────────────────────────────
+
+    def _switch_to_local(self, raw: str) -> None:
+        """Switch to a local Ollama model.
+
+        ``/local`` uses the model configured in settings.
+        ``/local <model>`` overrides with the given model tag.
+        """
+        parts = raw.strip().split(None, 1)
+        model_name = parts[1].strip() if len(parts) > 1 else settings.local_model_name
+        self._llm = LocalModelClient(
+            base_url=settings.local_model_url,
+            model_name=model_name,
+        )
+        self._orchestrator = None  # rebuild on next engagement
+        render_success(
+            f"Switched to local model [bold]{model_name}[/bold] at {settings.local_model_url}"
+        )
+
+    def _switch_to_anthropic(self) -> None:
+        """Switch back to the Anthropic cloud API."""
+        if not settings.anthropic_api_key:
+            render_error("ANTHROPIC_API_KEY is not configured. Set it in .env first.")
+            return
+        self._llm = AnthropicClient(api_key=settings.anthropic_api_key)
+        self._orchestrator = None  # rebuild on next engagement
+        render_success(f"Switched to Anthropic ({settings.sonnet_model})")
 
     async def _start_engagement(self, target: str) -> None:
         """Initialise state and run the engagement loop."""
@@ -200,7 +248,7 @@ class SeraphREPL:
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 
-def _build_orchestrator(llm: AnthropicClient, on_event: Any) -> OrchestratorAgent:
+def _build_orchestrator(llm: BaseLLMClient, on_event: Any) -> OrchestratorAgent:
     """Construct the orchestrator with all sub-agents and tools registered."""
     registry = ToolRegistry()
     registry.register_many([

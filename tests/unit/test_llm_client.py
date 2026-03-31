@@ -1,12 +1,18 @@
-"""Unit tests for AnthropicClient."""
+"""Unit tests for AnthropicClient and LocalModelClient."""
 
 from __future__ import annotations
 
+import json
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from seraph.agents.llm_client import AnthropicClient
+from seraph.agents.llm_client import (
+    AnthropicClient,
+    LocalModelClient,
+    _to_openai_messages,
+    _to_openai_tools,
+)
 from seraph.exceptions import LLMError, LLMRateLimitError
 
 
@@ -116,10 +122,191 @@ class TestAnthropicClientCompleteWithTools:
         tools = [{"name": "nmap", "description": "scan", "input_schema": {}}]
         with patch.object(client._client.messages, "create", new_callable=AsyncMock) as mock_create:
             mock_create.return_value = mock_response
-            text, tool_calls = await client.complete_with_tools(
+            text, tool_calls, raw_blocks = await client.complete_with_tools(
                 [{"role": "user", "content": "scan"}], tools
             )
 
         assert text == "Running nmap"
         assert len(tool_calls) == 1
         assert tool_calls[0]["name"] == "nmap"
+
+
+# ── LocalModelClient tests ────────────────────────────────────────────────────
+
+
+def _make_ollama_response(text: str) -> dict:
+    return {
+        "choices": [
+            {
+                "message": {
+                    "role": "assistant",
+                    "content": text,
+                    "tool_calls": None,
+                }
+            }
+        ]
+    }
+
+
+def _make_ollama_tool_response(text: str, tool_calls: list[dict]) -> dict:
+    return {
+        "choices": [
+            {
+                "message": {
+                    "role": "assistant",
+                    "content": text or None,
+                    "tool_calls": [
+                        {
+                            "id": tc["id"],
+                            "type": "function",
+                            "function": {
+                                "name": tc["name"],
+                                "arguments": json.dumps(tc["input"]),
+                            },
+                        }
+                        for tc in tool_calls
+                    ],
+                }
+            }
+        ]
+    }
+
+
+class TestLocalModelClientComplete:
+    @pytest.mark.asyncio
+    async def test_complete_returns_content(self) -> None:
+        client = LocalModelClient(model_name="qwen2.5-coder:8b", cache_enabled=False)
+        resp = _make_ollama_response("Hello from local model")
+
+        with patch.object(client, "_post", new_callable=AsyncMock) as mock_post:
+            mock_post.return_value = resp
+            result = await client.complete([{"role": "user", "content": "Hi"}])
+
+        assert result == "Hello from local model"
+
+    @pytest.mark.asyncio
+    async def test_complete_caches_identical_requests(self) -> None:
+        client = LocalModelClient(model_name="qwen2.5-coder:8b", cache_enabled=True)
+        resp = _make_ollama_response("Cached")
+
+        with patch.object(client, "_post", new_callable=AsyncMock) as mock_post:
+            mock_post.return_value = resp
+            r1 = await client.complete([{"role": "user", "content": "same"}])
+            r2 = await client.complete([{"role": "user", "content": "same"}])
+
+        assert r1 == r2 == "Cached"
+        assert mock_post.call_count == 1
+
+    @pytest.mark.asyncio
+    async def test_complete_includes_system_as_message(self) -> None:
+        client = LocalModelClient(model_name="qwen2.5-coder:8b", cache_enabled=False)
+        resp = _make_ollama_response("ok")
+        captured: list[dict] = []
+
+        async def capture(path: str, payload: dict) -> dict:  # type: ignore[override]
+            captured.append(payload)
+            return resp
+
+        with patch.object(client, "_post", side_effect=capture):
+            await client.complete(
+                [{"role": "user", "content": "hello"}],
+                system="You are an expert.",
+            )
+
+        assert captured[0]["messages"][0] == {"role": "system", "content": "You are an expert."}
+
+    @pytest.mark.asyncio
+    async def test_complete_raises_llm_error_on_failure(self) -> None:
+        client = LocalModelClient(model_name="qwen2.5-coder:8b", cache_enabled=False)
+
+        with patch.object(client, "_post", new_callable=AsyncMock, side_effect=LLMError("down")):
+            with pytest.raises(LLMError, match="down"):
+                await client.complete([{"role": "user", "content": "Hi"}])
+
+
+class TestLocalModelClientCompleteWithTools:
+    @pytest.mark.asyncio
+    async def test_complete_with_tools_returns_tool_calls(self) -> None:
+        client = LocalModelClient(model_name="qwen2.5-coder:8b", cache_enabled=False)
+        resp = _make_ollama_tool_response(
+            "Running nmap",
+            [{"id": "call-1", "name": "nmap", "input": {"ports": "80"}}],
+        )
+
+        tools = [{"name": "nmap", "description": "scan", "input_schema": {}}]
+        with patch.object(client, "_post_with_retry", new_callable=AsyncMock, return_value=resp):
+            text, tool_calls, raw_blocks = await client.complete_with_tools(
+                [{"role": "user", "content": "scan"}], tools
+            )
+
+        assert text == "Running nmap"
+        assert len(tool_calls) == 1
+        assert tool_calls[0]["name"] == "nmap"
+        assert tool_calls[0]["input"] == {"ports": "80"}
+
+        assert any(b["type"] == "tool_use" and b["name"] == "nmap" for b in raw_blocks)
+
+    @pytest.mark.asyncio
+    async def test_complete_with_tools_no_tool_calls(self) -> None:
+        client = LocalModelClient(model_name="qwen2.5-coder:8b", cache_enabled=False)
+        resp = _make_ollama_response("I have no tools to call.")
+
+        tools = [{"name": "nmap", "description": "scan", "input_schema": {}}]
+        with patch.object(client, "_post_with_retry", new_callable=AsyncMock, return_value=resp):
+            text, tool_calls, raw_blocks = await client.complete_with_tools(
+                [{"role": "user", "content": "what?"}], tools
+            )
+
+        assert text == "I have no tools to call."
+        assert tool_calls == []
+        assert raw_blocks == [{"type": "text", "text": "I have no tools to call."}]
+
+
+class TestToOpenaiMessages:
+    def test_simple_string_content(self) -> None:
+        messages = [{"role": "user", "content": "Hello"}]
+        result = _to_openai_messages(messages)
+        assert result == [{"role": "user", "content": "Hello"}]
+
+    def test_assistant_tool_use_blocks(self) -> None:
+        messages = [
+            {
+                "role": "assistant",
+                "content": [
+                    {"type": "text", "text": "Running nmap"},
+                    {"type": "tool_use", "id": "tu-1", "name": "nmap", "input": {"ports": "80"}},
+                ],
+            }
+        ]
+        result = _to_openai_messages(messages)
+        assert len(result) == 1
+        assert result[0]["role"] == "assistant"
+        assert result[0]["content"] == "Running nmap"
+        assert result[0]["tool_calls"][0]["function"]["name"] == "nmap"
+
+    def test_user_tool_result_blocks(self) -> None:
+        messages = [
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "tool_result",
+                        "tool_use_id": "tu-1",
+                        "content": "exit_code=0\noutput",
+                    },
+                ],
+            }
+        ]
+        result = _to_openai_messages(messages)
+        assert result[0]["role"] == "tool"
+        assert result[0]["tool_call_id"] == "tu-1"
+        assert "output" in result[0]["content"]
+
+
+class TestToOpenaiTools:
+    def test_converts_anthropic_tools(self) -> None:
+        tools = [{"name": "nmap", "description": "scan", "input_schema": {"type": "object"}}]
+        result = _to_openai_tools(tools)
+        assert result[0]["type"] == "function"
+        assert result[0]["function"]["name"] == "nmap"
+        assert result[0]["function"]["parameters"] == {"type": "object"}
