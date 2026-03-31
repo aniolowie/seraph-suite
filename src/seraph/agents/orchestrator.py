@@ -166,15 +166,22 @@ class OrchestratorAgent:
         """Return True if the engagement should terminate.
 
         Terminates when:
-        - ``current_agent`` is "done".
+        - ``current_agent`` is "done" (orchestrator LLM decided).
         - Iteration cap is reached.
-        - Both user and root flags are captured (2+ flags).
+        - Both user and root flags are confirmed (2+ named-format flags).
+          Named formats: ``HTB{...}``, ``flag{...}``, ``ctf{...}``.
+          Bare 32-char hex from HTTP responses is NOT counted here.
         """
         if state.current_agent == _DONE_SENTINEL:
             return True
         if state.iteration >= self._max_iterations:
             return True
-        if len(state.flags) >= 2:
+        confirmed = [
+            f for f in state.flags
+            if f.startswith("HTB{") or f.startswith("flag{") or f.startswith("ctf{")
+            or (len(f) == 32 and f.isalnum())  # only standalone hex (from flag files)
+        ]
+        if len(confirmed) >= 2:
             log.info("orchestrator.all_flags_captured", flags=state.flags)
             return True
         return False

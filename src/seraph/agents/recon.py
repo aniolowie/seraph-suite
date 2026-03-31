@@ -7,7 +7,6 @@ with discovered ports, services, and OS details.
 
 from __future__ import annotations
 
-import json
 import re
 import xml.etree.ElementTree as ET
 from typing import Any
@@ -76,28 +75,38 @@ class ReconAgent(BaseAgent):
 
         tool_call_count = 0
         new_findings: list[Finding] = []
+        seen_finding_ids: set[str] = set()
         updated_target = state.target
 
         while tool_call_count < self._max_tool_calls:
-            text, tool_calls = await self._call_llm(state, system_prompt, tools)
+            text, tool_calls, raw_content = await self._call_llm(state, system_prompt, tools)
 
+            # Store the full assistant content (text + tool_use blocks) so the
+            # conversation stays valid for the Anthropic API.
+            if raw_content:
+                state = self._add_message(state, "assistant", raw_content)
+
+            # Surface LLM reasoning to the user.
             if text:
-                state = self._add_message(state, "assistant", text)
+                await self._emit("llm_response", {"text": text})
 
             if not tool_calls:
                 break
 
-            tool_results_for_llm: list[dict[str, Any]] = []
+            tool_results: list[dict[str, Any]] = []
             for call in tool_calls:
                 tool_call_count += 1
                 result = await self._execute_tool(call["name"], call["input"], state.target)
                 state = state.model_copy(update={"tool_outputs": [*state.tool_outputs, result]})
 
                 if call["name"] == "nmap":
-                    new_findings.extend(_parse_nmap_findings(result.stdout, state.target))
+                    for f in _parse_nmap_findings(result.stdout, state.target):
+                        if f.id not in seen_finding_ids:
+                            new_findings.append(f)
+                            seen_finding_ids.add(f.id)
                     updated_target = _update_target_from_nmap(result.stdout, updated_target)
 
-                tool_results_for_llm.append(
+                tool_results.append(
                     {
                         "type": "tool_result",
                         "tool_use_id": call["id"],
@@ -105,7 +114,8 @@ class ReconAgent(BaseAgent):
                     }
                 )
 
-            state = self._add_message(state, "user", json.dumps(tool_results_for_llm))
+            # Send all tool results as a list — NOT a JSON string.
+            state = self._add_message(state, "user", tool_results)
 
         state = state.model_copy(
             update={

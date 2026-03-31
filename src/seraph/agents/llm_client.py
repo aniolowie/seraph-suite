@@ -115,13 +115,13 @@ class AnthropicClient:
 
     async def complete_with_tools(
         self,
-        messages: list[dict[str, str]],
+        messages: list[dict[str, Any]],
         tools: list[dict[str, Any]],
         *,
         model: str | None = None,
         max_tokens: int = 4096,
         system: str | None = None,
-    ) -> tuple[str, list[dict[str, Any]]]:
+    ) -> tuple[str, list[dict[str, Any]], list[dict[str, Any]]]:
         """Send a chat completion with tool-use enabled.
 
         Args:
@@ -132,8 +132,11 @@ class AnthropicClient:
             system: Optional system prompt.
 
         Returns:
-            Tuple of (assistant_text, tool_use_blocks).
-            ``tool_use_blocks`` is empty when the model did not call any tools.
+            Tuple of (assistant_text, tool_use_blocks, raw_content_blocks).
+            ``raw_content_blocks`` is the full assistant content list — use it
+            as the ``content`` field when appending the assistant message so
+            that tool_use blocks are included and the conversation stays valid
+            for the Anthropic API.
 
         Raises:
             LLMRateLimitError: Rate limit after max retries.
@@ -149,8 +152,7 @@ class AnthropicClient:
         if system:
             kwargs["system"] = system
 
-        text, tool_calls = await self._call_with_tools_retry(kwargs)
-        return text, tool_calls
+        return await self._call_with_tools_retry(kwargs)
 
     # ── Internal ──────────────────────────────────────────────────────────────
 
@@ -185,26 +187,42 @@ class AnthropicClient:
 
     async def _call_with_tools_retry(
         self, kwargs: dict[str, Any]
-    ) -> tuple[str, list[dict[str, Any]]]:
-        """Call ``messages.create`` with tools, retry on rate limit."""
+    ) -> tuple[str, list[dict[str, Any]], list[dict[str, Any]]]:
+        """Call ``messages.create`` with tools, retry on rate limit.
+
+        Returns:
+            Tuple of (text, tool_calls, raw_content_blocks) where
+            ``raw_content_blocks`` is the full content list to store as the
+            assistant message — required for valid tool_use/tool_result turns.
+        """
         for attempt in range(self._max_retries + 1):
             try:
                 response = await self._client.messages.create(**kwargs)
                 text = ""
                 tool_calls: list[dict[str, Any]] = []
+                raw_blocks: list[dict[str, Any]] = []
                 for block in response.content:
                     if getattr(block, "type", None) == "text":
                         text += block.text
+                        raw_blocks.append({"type": "text", "text": block.text})
                     elif block.type == "tool_use":
                         tool_calls.append(
                             {"id": block.id, "name": block.name, "input": block.input}
+                        )
+                        raw_blocks.append(
+                            {
+                                "type": "tool_use",
+                                "id": block.id,
+                                "name": block.name,
+                                "input": block.input,
+                            }
                         )
                 log.debug(
                     "llm_client.complete_with_tools",
                     model=kwargs["model"],
                     tool_calls=len(tool_calls),
                 )
-                return text, tool_calls
+                return text, tool_calls, raw_blocks
             except RateLimitError as exc:
                 if attempt >= self._max_retries:
                     raise LLMRateLimitError(
@@ -216,6 +234,8 @@ class AnthropicClient:
             except Exception as exc:
                 raise LLMError(f"Anthropic API error: {exc}") from exc
         raise LLMError("Unreachable retry loop exit")  # pragma: no cover
+
+
 
     def _cache_key(
         self,

@@ -9,7 +9,6 @@ Adds discovered flags directly to ``EngagementState.flags``.
 
 from __future__ import annotations
 
-import json
 import re
 from typing import Any
 
@@ -86,17 +85,18 @@ class CtfAgent(BaseAgent):
         new_findings: list[Finding] = []
 
         while tool_call_count < self._max_tool_calls:
-            text, tool_calls = await self._call_llm(state, system_prompt, tools)
+            text, tool_calls, raw_content = await self._call_llm(state, system_prompt, tools)
 
-            # Extract flags from LLM text
-            flags_in_text = _extract_flags(text)
-            new_flags.extend(f for f in flags_in_text if f not in state.flags + new_flags)
+            if raw_content:
+                state = self._add_message(state, "assistant", raw_content)
 
             if text:
-                state = self._add_message(state, "assistant", text)
+                await self._emit("llm_response", {"text": text})
+                new_flags.extend(
+                    f for f in _extract_flags(text) if f not in state.flags + new_flags
+                )
 
             if not tool_calls:
-                # Try to parse structured flag response
                 parsed = _parse_flag_json(text)
                 if parsed:
                     flag = parsed.get("flag", "")
@@ -105,28 +105,27 @@ class CtfAgent(BaseAgent):
                         new_findings.append(_make_flag_finding(parsed, state))
                 break
 
+            # Collect ALL tool results before adding to state (API requires
+            # one user message with all tool_results for the preceding turn).
+            tool_results: list[dict[str, Any]] = []
             for call in tool_calls:
                 tool_call_count += 1
                 result = await self._execute_tool(call["name"], call["input"], state.target)
                 state = state.model_copy(update={"tool_outputs": [*state.tool_outputs, result]})
 
-                # Scan tool output for flags
-                flags_in_output = _extract_flags(result.stdout)
-                new_flags.extend(f for f in flags_in_output if f not in state.flags + new_flags)
-
-                state = self._add_message(
-                    state,
-                    "user",
-                    json.dumps(
-                        [
-                            {
-                                "type": "tool_result",
-                                "tool_use_id": call["id"],
-                                "content": f"exit_code={result.exit_code}\n{result.stdout[:3000]}",
-                            }
-                        ]
-                    ),
+                new_flags.extend(
+                    f for f in _extract_flags(result.stdout)
+                    if f not in state.flags + new_flags
                 )
+                tool_results.append(
+                    {
+                        "type": "tool_result",
+                        "tool_use_id": call["id"],
+                        "content": f"exit_code={result.exit_code}\n{result.stdout[:3000]}",
+                    }
+                )
+
+            state = self._add_message(state, "user", tool_results)
 
             if new_flags:
                 log.info("ctf_agent.flags_found", flags=new_flags)

@@ -141,7 +141,7 @@ class BaseAgent(ABC):
         tools: list[BaseTool] | None = None,
         model: str | None = None,
         max_tokens: int = 4096,
-    ) -> tuple[str, list[dict[str, Any]]]:
+    ) -> tuple[str, list[dict[str, Any]], list[dict[str, Any]]]:
         """Call the LLM with the current conversation buffer.
 
         Args:
@@ -152,7 +152,9 @@ class BaseAgent(ABC):
             max_tokens: Response token limit.
 
         Returns:
-            Tuple of (assistant_text, tool_call_blocks).
+            Tuple of (text, tool_calls, raw_content_blocks).
+            ``raw_content_blocks`` must be stored as the assistant message
+            content so that tool_use/tool_result turns are valid for the API.
 
         Raises:
             LLMError: On API failure.
@@ -166,7 +168,8 @@ class BaseAgent(ABC):
                 model=model,
                 max_tokens=max_tokens,
             )
-            return text, []
+            raw: list[dict[str, Any]] = [{"type": "text", "text": text}] if text else []
+            return text, [], raw
 
         anthropic_tools = self._registry.to_anthropic_tools(tools)
         return await self._llm.complete_with_tools(
@@ -252,9 +255,21 @@ class BaseAgent(ABC):
         )
         return state.model_copy(update={"history": [*state.history, entry]})
 
-    def _add_message(self, state: EngagementState, role: str, content: str) -> EngagementState:
-        """Append a message to the conversation buffer (immutable)."""
-        new_msg = {"role": role, "content": content}
+    def _add_message(
+        self,
+        state: EngagementState,
+        role: str,
+        content: str | list[dict[str, Any]],
+    ) -> EngagementState:
+        """Append a message to the conversation buffer (immutable).
+
+        Args:
+            state: Current state.
+            role: ``"user"`` or ``"assistant"``.
+            content: Plain string OR a list of content blocks (required for
+                proper tool_use / tool_result turns in the Anthropic API).
+        """
+        new_msg: dict[str, Any] = {"role": role, "content": content}
         return state.model_copy(update={"messages": [*state.messages, new_msg]})
 
 

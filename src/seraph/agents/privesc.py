@@ -6,7 +6,6 @@ most promising privesc vector, and captures the root flag.
 
 from __future__ import annotations
 
-import json
 import re
 from typing import Any
 
@@ -22,7 +21,10 @@ from seraph.agents.state import (
 
 log = structlog.get_logger(__name__)
 
-_FLAG_RE = re.compile(r"[a-fA-F0-9]{32}|HTB\{[^}]+\}|flag\{[^}]+\}", re.IGNORECASE)
+# 32-char hex only when it appears on its own line — matches `/root/root.txt` output
+# but NOT hex embedded inside HTML/JSON (CSRF tokens, session IDs, etc.)
+_FLAG_HEX_RE = re.compile(r"^([a-fA-F0-9]{32})$", re.MULTILINE)
+_FLAG_NAMED_RE = re.compile(r"HTB\{[^}]+\}|flag\{[^}]+\}|ctf\{[^}]+\}", re.IGNORECASE)
 _JSON_BLOCK_RE = re.compile(r"\{[^{}]+\}", re.DOTALL)
 _SUID_RE = re.compile(r"SUID.*?(/[^\s]+)", re.IGNORECASE)
 _SUDO_RE = re.compile(r"(sudo|SUDO).*?(/[^\s]+)", re.IGNORECASE)
@@ -81,12 +83,14 @@ class PrivescAgent(BaseAgent):
         root_obtained = False
 
         while tool_call_count < self._max_tool_calls:
-            text, tool_calls = await self._call_llm(state, system_prompt, tools)
+            text, tool_calls, raw_content = await self._call_llm(state, system_prompt, tools)
+
+            if raw_content:
+                state = self._add_message(state, "assistant", raw_content)
 
             if text:
-                state = self._add_message(state, "assistant", text)
-                flags_in_text = _FLAG_RE.findall(text)
-                for flag in flags_in_text:
+                await self._emit("llm_response", {"text": text})
+                for flag in _extract_flags(text):
                     if flag not in captured_flags:
                         captured_flags.append(flag)
                         root_obtained = True
@@ -98,21 +102,20 @@ class PrivescAgent(BaseAgent):
                     new_findings.append(finding)
                 break
 
-            tool_results_for_llm: list[dict[str, Any]] = []
+            tool_results: list[dict[str, Any]] = []
             for call in tool_calls:
                 tool_call_count += 1
                 result = await self._execute_tool(call["name"], call["input"], state.target)
                 state = state.model_copy(update={"tool_outputs": [*state.tool_outputs, result]})
 
                 output_text = result.stdout + result.stderr
-                flags_in_output = _FLAG_RE.findall(output_text)
-                for flag in flags_in_output:
+                for flag in _extract_flags(output_text):
                     if flag not in captured_flags:
                         captured_flags.append(flag)
                         root_obtained = True
                         log.info("privesc_agent.flag_in_output", flag=flag[:10] + "...")
 
-                tool_results_for_llm.append(
+                tool_results.append(
                     {
                         "type": "tool_result",
                         "tool_use_id": call["id"],
@@ -120,7 +123,7 @@ class PrivescAgent(BaseAgent):
                     }
                 )
 
-            state = self._add_message(state, "user", json.dumps(tool_results_for_llm))
+            state = self._add_message(state, "user", tool_results)
 
         new_phase = Phase.POST if root_obtained else state.phase
         state = state.model_copy(
@@ -147,6 +150,14 @@ class PrivescAgent(BaseAgent):
 
 
 # ── Parsing helpers ───────────────────────────────────────────────────────────
+
+
+def _extract_flags(text: str) -> list[str]:
+    """Extract flags from text — hex only on its own line, plus named formats."""
+    found: list[str] = []
+    found.extend(_FLAG_HEX_RE.findall(text))
+    found.extend(_FLAG_NAMED_RE.findall(text))
+    return list(dict.fromkeys(found))
 
 
 def _parse_privesc_finding(llm_text: str, state: EngagementState) -> Finding | None:
